@@ -281,9 +281,13 @@ const App: React.FC = () => {
       </main>
 
       <footer className="bg-white border-t border-slate-100 py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest no-print">
-        <div className="flex items-center gap-2 text-emerald-600">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-          {isApiKeyMissing ? "Aguardando API KEY" : "Servidor Online"}
+        <div className="flex items-center gap-2 text-amber-600">
+          {isApiKeyMissing && (
+            <>
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+              <span>Aguardando API KEY</span>
+            </>
+          )}
         </div>
         <div className="text-center">© 2025 iJota Inteligência Jurídica.</div>
       </footer>
