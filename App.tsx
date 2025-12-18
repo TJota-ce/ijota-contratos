@@ -20,8 +20,14 @@ const App: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   
-  // Verifica se a API KEY está configurada
-  const isApiKeyMissing = !process.env.API_KEY || process.env.API_KEY === "undefined" || process.env.API_KEY === "";
+  // Verifica se a API KEY está configurada de forma mais robusta
+  const [apiKeyExists, setApiKeyExists] = useState(false);
+
+  useEffect(() => {
+    const key = process.env.API_KEY;
+    const isValid = !!key && key !== "undefined" && key !== "";
+    setApiKeyExists(isValid);
+  }, []);
 
   const [history, setHistory] = useState<Contract[]>(() => {
     try {
@@ -56,15 +62,11 @@ const App: React.FC = () => {
       setStatus(GenerationState.ERROR);
       
       let errorMsg = "Não foi possível gerar o contrato.";
-      
       if (error.message?.includes("CONFIG_MISSING")) {
-        errorMsg = "Atenção: A API_KEY não foi configurada no painel do Vercel. Por favor, adicione-a em Settings > Environment Variables.";
+        errorMsg = "A API_KEY não foi detectada. Se você já a adicionou no Vercel, realize um 'REDEPLOY' na aba Deployments do painel Vercel.";
       } else if (error.message?.includes("403")) {
-        errorMsg = "Erro de Permissão: Sua API Key pode estar incorreta ou sem acesso ao Gemini 3.";
-      } else if (error.message?.includes("quota")) {
-        errorMsg = "Limite de uso atingido. Tente novamente em alguns minutos.";
+        errorMsg = "Erro 403: Verifique se sua chave do Google AI Studio está correta e ativa.";
       }
-      
       alert(errorMsg);
     }
   };
@@ -78,7 +80,7 @@ const App: React.FC = () => {
       const updated = { ...currentContract, content: newContent };
       setCurrentContract(updated);
       setHistory(prev => prev.map(c => c.id === updated.id ? updated : c));
-      alert('Contrato atualizado no seu histórico local.');
+      alert('Contrato atualizado.');
     }
   };
 
@@ -93,10 +95,11 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col antialiased overflow-x-hidden">
-      {/* Banner de Aviso de Configuração */}
-      {isApiKeyMissing && (
-        <div className="bg-amber-600 text-white px-4 py-2 text-center text-xs font-bold uppercase tracking-widest animate-pulse no-print">
-          ⚠️ Configuração Pendente: Adicione a API_KEY no painel do Vercel para o app funcionar.
+      {/* Banner de Aviso Refinado */}
+      {!apiKeyExists && (
+        <div className="bg-indigo-600 text-white px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest no-print shadow-lg">
+          <span className="opacity-90">⚠️ Chave Detectada no Vercel? </span>
+          <span className="underline decoration-white/40 underline-offset-4">Você deve fazer um "REDEPLOY" no painel do Vercel para ativar a chave.</span>
         </div>
       )}
 
@@ -115,7 +118,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-1 md:gap-3">
             <button 
               onClick={() => setShowHistory(!showHistory)} 
-              className="p-2 text-slate-600 hover:text-indigo-600 font-semibold flex items-center gap-1 md:gap-2 text-xs md:text-sm transition-colors"
+              className="p-2 text-slate-600 hover:text-indigo-600 font-semibold flex items-center gap-1 md:gap-2 text-xs md:text-sm"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               <span className="hidden sm:inline">Histórico</span> ({history.length})
@@ -158,7 +161,7 @@ const App: React.FC = () => {
                       type="text"
                       value={formData.partyA}
                       onChange={(e) => updateField('partyA', e.target.value.toUpperCase())}
-                      placeholder="NOME COMPLETO OU EMPRESA"
+                      placeholder="NOME"
                       className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
                     />
                   </div>
@@ -168,7 +171,7 @@ const App: React.FC = () => {
                       type="text"
                       value={formData.partyB}
                       onChange={(e) => updateField('partyB', e.target.value.toUpperCase())}
-                      placeholder="NOME COMPLETO OU EMPRESA"
+                      placeholder="NOME"
                       className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
                     />
                   </div>
@@ -176,7 +179,7 @@ const App: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Estilo da Redação</label>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Estilo</label>
                     <select
                       value={formData.tone}
                       onChange={(e) => updateField('tone', e.target.value as LanguageTone)}
@@ -188,12 +191,12 @@ const App: React.FC = () => {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Observações Adicionais</label>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Extras</label>
                     <input
                       type="text"
                       value={formData.specificClauses}
                       onChange={(e) => updateField('specificClauses', e.target.value)}
-                      placeholder="Ex: Pagamento mensal de R$ 1000"
+                      placeholder="Ex: Multa de 10%"
                       className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                     />
                   </div>
@@ -202,10 +205,10 @@ const App: React.FC = () => {
                 <Button 
                   onClick={handleGenerate} 
                   isLoading={status === GenerationState.LOADING}
-                  disabled={!formData.objective.trim() || status === GenerationState.LOADING || isApiKeyMissing}
+                  disabled={!formData.objective.trim() || status === GenerationState.LOADING}
                   className="w-full h-14 md:h-16 text-base md:text-lg font-bold rounded-xl md:rounded-2xl shadow-lg bg-slate-900 border-none"
                 >
-                  {isApiKeyMissing ? "Aguardando Configuração..." : "Gerar Minuta do Contrato"}
+                  {apiKeyExists ? "Gerar Minuta do Contrato" : "Aguardando Redeploy..."}
                 </Button>
               </div>
             </div>
@@ -237,7 +240,7 @@ const App: React.FC = () => {
 
             <button 
               onClick={() => setIsMobileChatOpen(true)}
-              className={`lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 ${isMobileChatOpen ? 'scale-0' : 'scale-100'} no-print active:scale-95 transition-transform`}
+              className={`lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 ${isMobileChatOpen ? 'scale-0' : 'scale-100'} no-print`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
             </button>
@@ -250,7 +253,7 @@ const App: React.FC = () => {
             <div className="relative w-full max-w-[320px] md:max-w-md bg-white shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-300">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-bold serif text-slate-900">Meus Contratos</h3>
+                  <h3 className="text-xl font-bold serif text-slate-900">Histórico</h3>
                 </div>
                 <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -258,18 +261,17 @@ const App: React.FC = () => {
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {history.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 text-sm">Ainda não há contratos criados.</div>
+                  <div className="text-center py-12 text-slate-400 text-sm">Nenhum contrato salvo.</div>
                 ) : (
                   history.map(c => (
                     <div 
                       key={c.id} 
                       onClick={() => { setCurrentContract(c); setShowHistory(false); setStatus(GenerationState.SUCCESS); }}
-                      className="p-4 bg-white border border-slate-100 rounded-xl cursor-pointer hover:border-indigo-500 transition-all group"
+                      className="p-4 bg-white border border-slate-100 rounded-xl cursor-pointer hover:border-indigo-500 transition-all"
                     >
-                      <h4 className="font-bold text-slate-800 uppercase text-[10px] truncate mb-1 group-hover:text-indigo-600 transition-colors">{c.title}</h4>
-                      <div className="text-[8px] font-bold text-slate-400 uppercase flex justify-between">
-                        <span>{new Date(c.createdAt).toLocaleDateString()}</span>
-                        <span>{c.formData.tone}</span>
+                      <h4 className="font-bold text-slate-800 uppercase text-[10px] truncate mb-1">{c.title}</h4>
+                      <div className="text-[8px] font-bold text-slate-400 uppercase">
+                        {new Date(c.createdAt).toLocaleDateString()}
                       </div>
                     </div>
                   ))
@@ -281,12 +283,12 @@ const App: React.FC = () => {
       </main>
 
       <footer className="bg-white border-t border-slate-100 py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest no-print">
-        <div className="flex items-center gap-2 text-amber-600">
-          {isApiKeyMissing && (
-            <>
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
-              <span>Aguardando API KEY</span>
-            </>
+        <div className="flex items-center gap-2">
+          {!apiKeyExists && (
+            <span className="text-amber-600 flex items-center gap-1 italic">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+              Aguardando Redeploy no Vercel
+            </span>
           )}
         </div>
         <div className="text-center">© 2025 iJota Inteligência Jurídica.</div>
