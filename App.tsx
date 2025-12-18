@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { generateContractDraft } from './services/geminiService';
-import { Contract, GenerationState, ContractFormData, LanguageTone } from './types';
-import { Button } from './components/Button';
-import { ContractEditor } from './components/ContractEditor';
-import { ChatBot } from './components/ChatBot';
+import { generateContractDraft } from './services/geminiService.ts';
+import { Contract, GenerationState, ContractFormData, LanguageTone } from './types.ts';
+import { Button } from './components/Button.tsx';
+import { ContractEditor } from './components/ContractEditor.tsx';
+import { ChatBot } from './components/ChatBot.tsx';
 
 const App: React.FC = () => {
   const [formData, setFormData] = useState<ContractFormData>({
@@ -21,9 +21,11 @@ const App: React.FC = () => {
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   
   const [history, setHistory] = useState<Contract[]>(() => {
-    const saved = localStorage.getItem('ijota_history');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { return []; }
+    try {
+      const saved = localStorage.getItem('ijota_history');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn("Erro ao carregar histórico:", e);
     }
     return [];
   });
@@ -50,6 +52,7 @@ const App: React.FC = () => {
     } catch (error) {
       console.error(error);
       setStatus(GenerationState.ERROR);
+      alert("Houve um problema ao gerar o contrato. Verifique sua conexão ou API Key.");
     }
   };
 
@@ -62,7 +65,7 @@ const App: React.FC = () => {
       const updated = { ...currentContract, content: newContent };
       setCurrentContract(updated);
       setHistory(prev => prev.map(c => c.id === updated.id ? updated : c));
-      alert('Contrato salvo!');
+      alert('Contrato salvo no histórico do navegador!');
     }
   };
 
@@ -96,7 +99,7 @@ const App: React.FC = () => {
               className="p-2 text-slate-600 hover:text-indigo-600 font-semibold flex items-center gap-1 md:gap-2 text-xs md:text-sm"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <span className="hidden sm:inline">Meus Contratos</span> ({history.length})
+              <span className="hidden sm:inline">Histórico</span> ({history.length})
             </button>
             <Button variant="primary" onClick={() => { setCurrentContract(null); setStatus(GenerationState.IDLE); }} className="rounded-full px-4 md:px-6 py-1.5 md:py-2 text-xs md:text-sm bg-slate-900 border-none">
               Novo
@@ -114,40 +117,39 @@ const App: React.FC = () => {
                   <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg shrink-0">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </div>
-                  <h2 className="text-xl md:text-2xl font-bold text-slate-800 serif">Detalhes do Contrato</h2>
+                  <h2 className="text-xl md:text-2xl font-bold text-slate-800 serif">Novo Contrato</h2>
                 </div>
-                <div className="text-slate-400 text-[10px] font-bold tracking-widest uppercase">Preenchimento rápido</div>
               </div>
 
               <div className="space-y-6 md:space-y-8">
                 <div className="space-y-3">
-                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Objetivo do Contrato</label>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Objetivo</label>
                   <textarea
                     value={formData.objective}
                     onChange={(e) => updateField('objective', e.target.value.toUpperCase())}
-                    placeholder="EX: ALUGUEL DE TEMPORADA OU PRESTAÇÃO DE SERVIÇOS"
+                    placeholder="EX: CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE CONSULTORIA"
                     className="w-full h-24 md:h-32 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Parte A (Contratante)</label>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Contratante (Parte A)</label>
                     <input
                       type="text"
                       value={formData.partyA}
                       onChange={(e) => updateField('partyA', e.target.value.toUpperCase())}
-                      placeholder="NOME COMPLETO"
+                      placeholder="NOME OU RAZÃO SOCIAL"
                       className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Parte B (Contratado)</label>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Contratado (Parte B)</label>
                     <input
                       type="text"
                       value={formData.partyB}
                       onChange={(e) => updateField('partyB', e.target.value.toUpperCase())}
-                      placeholder="NOME COMPLETO"
+                      placeholder="NOME OU RAZÃO SOCIAL"
                       className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
                     />
                   </div>
@@ -155,7 +157,7 @@ const App: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Tom da Linguagem</label>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Estilo da Linguagem</label>
                     <select
                       value={formData.tone}
                       onChange={(e) => updateField('tone', e.target.value as LanguageTone)}
@@ -167,12 +169,12 @@ const App: React.FC = () => {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Cláusulas Extras</label>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Cláusulas Específicas</label>
                     <input
                       type="text"
                       value={formData.specificClauses}
                       onChange={(e) => updateField('specificClauses', e.target.value)}
-                      placeholder="Ex: Multa de 10%, Foro de RJ"
+                      placeholder="Ex: Pagamento até dia 05, Multa de 20%"
                       className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                     />
                   </div>
@@ -181,10 +183,10 @@ const App: React.FC = () => {
                 <Button 
                   onClick={handleGenerate} 
                   isLoading={status === GenerationState.LOADING}
-                  disabled={!formData.objective.trim()}
-                  className="w-full h-14 md:h-16 text-base md:text-lg font-bold rounded-xl md:rounded-2xl shadow-lg bg-slate-900 hover:bg-slate-800 border-none mt-4"
+                  disabled={!formData.objective.trim() || status === GenerationState.LOADING}
+                  className="w-full h-14 md:h-16 text-base md:text-lg font-bold rounded-xl md:rounded-2xl shadow-lg bg-slate-900 border-none"
                 >
-                  Gerar Minuta Agora
+                  Gerar com Gemini AI
                 </Button>
               </div>
             </div>
@@ -198,7 +200,6 @@ const App: React.FC = () => {
                />
             </div>
             
-            {/* Desktop Sidebar / Mobile Drawer */}
             <div className={`
               lg:block lg:relative lg:w-[380px] lg:h-full lg:translate-y-0
               fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 ease-in-out bg-white lg:bg-transparent
@@ -215,21 +216,15 @@ const App: React.FC = () => {
               />
             </div>
 
-            {/* Floating Action Button (FAB) para abrir o Assistente no Mobile */}
             <button 
               onClick={() => setIsMobileChatOpen(true)}
-              className={`
-                lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40
-                transition-transform active:scale-90 no-print
-                ${isMobileChatOpen ? 'scale-0' : 'scale-100'}
-              `}
+              className={`lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 ${isMobileChatOpen ? 'scale-0' : 'scale-100'} no-print`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
             </button>
           </div>
         )}
 
-        {/* Histórico Overlay */}
         {showHistory && (
           <div className="fixed inset-0 z-[60] flex justify-end no-print">
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowHistory(false)}></div>
@@ -237,7 +232,6 @@ const App: React.FC = () => {
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-bold serif text-slate-900">Histórico</h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Salvos localmente</p>
                 </div>
                 <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -245,18 +239,17 @@ const App: React.FC = () => {
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {history.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 text-sm">Nenhum contrato salvo.</div>
+                  <div className="text-center py-12 text-slate-400 text-sm">Nenhum contrato.</div>
                 ) : (
                   history.map(c => (
                     <div 
                       key={c.id} 
                       onClick={() => { setCurrentContract(c); setShowHistory(false); setStatus(GenerationState.SUCCESS); }}
-                      className="p-4 bg-white border border-slate-100 rounded-xl cursor-pointer hover:border-indigo-500 hover:shadow-sm transition-all"
+                      className="p-4 bg-white border border-slate-100 rounded-xl cursor-pointer hover:border-indigo-500 transition-all"
                     >
                       <h4 className="font-bold text-slate-800 uppercase text-[10px] truncate mb-1">{c.title}</h4>
-                      <div className="flex justify-between items-center text-[8px] font-bold text-slate-400 uppercase">
-                        <span>{new Date(c.createdAt).toLocaleDateString()}</span>
-                        <span className="bg-slate-50 px-1.5 py-0.5 rounded">{c.formData.tone}</span>
+                      <div className="text-[8px] font-bold text-slate-400 uppercase">
+                        {new Date(c.createdAt).toLocaleDateString()} - {c.formData.tone}
                       </div>
                     </div>
                   ))
@@ -269,8 +262,8 @@ const App: React.FC = () => {
 
       <footer className="bg-white border-t border-slate-100 py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest no-print">
         <div className="flex items-center gap-2 text-emerald-600">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-          Online & Seguro
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+          Armazenamento Local Ativo
         </div>
         <div className="text-center">© 2025 Solution. Todos os direitos reservados.</div>
       </footer>

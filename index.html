@@ -17,14 +17,10 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        /* REGRAS DE IMPRESSÃO AVANÇADAS */
         @media print {
-            /* Esconde tudo que não é o contrato */
             header, footer, nav, button, select, .chat-bot, .sidebar, .no-print, [role="button"] {
                 display: none !important;
             }
-
-            /* Reseta o layout para folha A4 */
             html, body, #root {
                 background: white !important;
                 margin: 0 !important;
@@ -32,18 +28,11 @@
                 height: auto !important;
                 overflow: visible !important;
             }
-
             main {
                 display: block !important;
                 overflow: visible !important;
                 height: auto !important;
             }
-
-            /* Garante que o container do editor não limite o tamanho */
-            .flex { display: block !important; }
-            .overflow-hidden, .overflow-auto { overflow: visible !important; height: auto !important; }
-
-            /* Estilização do texto para o PDF */
             .print-content {
                 display: block !important;
                 visibility: visible !important;
@@ -57,26 +46,32 @@
                 white-space: pre-wrap !important;
                 word-wrap: break-word !important;
             }
-
-            /* Força quebras de página corretas */
             @page {
                 size: A4;
                 margin: 2.5cm 2cm;
             }
         }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
-  }
-}
-</script>
+    
+    <!-- Correção para evitar erro de 'process is not defined' no Vercel/GitHub -->
+    <script>
+        window.process = window.process || { env: {} };
+    </script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "react/": "https://esm.sh/react@^19.2.3/",
+        "react": "https://esm.sh/react@^19.2.3",
+        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+        "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+      }
+    }
+    </script>
 </head>
 <body class="bg-slate-50 text-slate-900">
     <div id="root"></div>
+    <!-- PONTO DE ENTRADA DO APLICATIVO - CRUCIAL PARA NÃO FICAR EM BRANCO -->
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>
