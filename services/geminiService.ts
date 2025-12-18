@@ -2,63 +2,73 @@
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import { ContractFormData } from "../types";
 
-// Always use process.env.API_KEY directly as per guidelines
+// Inicializa o cliente verificando a existência da chave
 export const createAIClient = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+  
+  // Verifica se a chave existe e não é a string "undefined" que alguns sistemas injetam
+  if (!apiKey || apiKey === "undefined" || apiKey === "") {
+    throw new Error("CONFIG_MISSING: API_KEY não configurada. Adicione-a nas Environment Variables do Vercel.");
+  }
+  
+  return new GoogleGenAI({ apiKey });
 };
 
 const getSystemInstruction = (tone: string) => {
   let toneGuidance = "";
   if (tone === 'Formal e Rigoroso') {
-    toneGuidance = "Use linguagem jurídica erudita (juridiquês técnico), com termos latinos seculares quando apropriado e estrutura formal clássica.";
+    toneGuidance = "Use linguagem jurídica técnica e formal clássica (venerando, outrossim, etc).";
   } else if (tone === 'Equilibrado') {
-    toneGuidance = "Use uma linguagem profissional moderna, clara e direta, evitando arcaísmos mas mantendo a seriedade jurídica necessária.";
+    toneGuidance = "Use uma linguagem profissional moderna, clara e direta, mantendo a segurança jurídica.";
   } else {
-    toneGuidance = "Use 'Plain Language' (Linguagem Simples). Evite jargões, use sentenças curtas e garanta que qualquer pessoa sem formação jurídica entenda perfeitamente os direitos e deveres.";
+    toneGuidance = "Use 'Plain Language' (Linguagem Simples), sem jargões e com sentenças curtas para fácil compreensão por leigos.";
   }
 
-  return `Você é o "iJota Contratos", um Consultor Jurídico Sênior brasileiro de elite.
-Sua tarefa é gerar e AJUSTAR contratos estruturados em português do Brasil.
+  return `Você é o "iJota Contratos", um assistente jurídico brasileiro especialista em redação contratual.
+Sua tarefa é gerar contratos completos, juridicamente válidos no Brasil, em português.
 ESTILO: ${toneGuidance}
 
-REGRAS OBRIGATÓRIAS:
-1. Identifique claramente as Partes no preâmbulo. 
-   - A Parte A deve ser tratada como CONTRATANTE ou LOCADOR.
-   - A Parte B deve ser tratada como CONTRATADO ou LOCATÁRIO.
-2. Inclua cláusulas essenciais (Objeto, Preço/Aluguel, Prazo, Rescisão, Foro, Penalidades, LGPD).
-3. Formate em Markdown profissional (Use negrito para títulos de cláusulas).
-4. REFINAMENTO: Quando o usuário pedir um ajuste, você DEVE retornar o TEXTO INTEGRAL DO CONTRATO com o ajuste aplicado. Não envie apenas a cláusula nova, envie o documento todo atualizado.`;
+REGRAS:
+1. Identifique claramente as Partes: Parte A (CONTRATANTE/LOCADOR) e Parte B (CONTRATADO/LOCATÁRIO).
+2. Inclua obrigatoriamente as cláusulas: Objeto, Valor e Forma de Pagamento, Prazo, Obrigações, Rescisão e Foro.
+3. Formate o texto usando Markdown (Use ## para títulos de cláusulas e negrito para termos importantes).
+4. Retorne SEMPRE o texto integral do contrato, pronto para uso.`;
 };
 
 export const generateContractDraft = async (data: ContractFormData): Promise<string> => {
-  const ai = createAIClient();
-  const prompt = `
-    DADOS PARA O CONTRATO:
-    - Objetivo: ${data.objective}
-    - Parte A (Contratante / Locador): ${data.partyA}
-    - Parte B (Contratado / Locatário): ${data.partyB}
-    - Cláusulas Adicionais: ${data.specificClauses || "Nenhuma específica, use o padrão jurídico"}
-    
-    Por favor, redija a minuta completa do contrato agora.
-  `;
+  try {
+    const ai = createAIClient();
+    const prompt = `
+      GERE UM CONTRATO COMPLETO COM ESTES DADOS:
+      - Objetivo Principal: ${data.objective}
+      - Nome/Razão Social Parte A: ${data.partyA}
+      - Nome/Razão Social Parte B: ${data.partyB}
+      - Detalhes/Cláusulas Adicionais solicitadas: ${data.specificClauses || "Seguir padrão de mercado para este tipo de contrato."}
+    `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: prompt,
-    config: {
-      systemInstruction: getSystemInstruction(data.tone),
-      temperature: 0.4,
-    },
-  });
-  return response.text || "Erro ao gerar o contrato.";
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        systemInstruction: getSystemInstruction(data.tone),
+        temperature: 0.4, // Menor temperatura para maior consistência jurídica
+      },
+    });
+
+    if (!response.text) throw new Error("A API retornou um conteúdo vazio.");
+    return response.text;
+  } catch (error: any) {
+    console.error("Erro Gemini Service:", error);
+    throw error;
+  }
 };
 
 export const createContractChat = (initialContext: string, tone: string): Chat => {
   const ai = createAIClient();
   return ai.chats.create({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-flash-preview',
     config: {
-      systemInstruction: `${getSystemInstruction(tone)}\n\nCONTEXTO DO CONTRATO ATUAL:\n${initialContext}\n\nSempre que solicitado um ajuste, devolva o contrato completo atualizado.`,
+      systemInstruction: `${getSystemInstruction(tone)}\n\nCONTEXTO DO CONTRATO ATUAL (Sempre baseie suas respostas e alterações neste texto):\n${initialContext}`,
     },
   });
 };

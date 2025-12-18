@@ -20,13 +20,14 @@ const App: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   
+  // Verifica se a API KEY está configurada
+  const isApiKeyMissing = !process.env.API_KEY || process.env.API_KEY === "undefined" || process.env.API_KEY === "";
+
   const [history, setHistory] = useState<Contract[]>(() => {
     try {
       const saved = localStorage.getItem('ijota_history');
       if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.warn("Erro ao carregar histórico:", e);
-    }
+    } catch (e) { return []; }
     return [];
   });
 
@@ -37,11 +38,12 @@ const App: React.FC = () => {
   const handleGenerate = async () => {
     if (!formData.objective.trim()) return;
     setStatus(GenerationState.LOADING);
+    
     try {
       const content = await generateContractDraft(formData);
       const newContract: Contract = {
         id: Date.now().toString(),
-        title: formData.objective.slice(0, 40) + (formData.objective.length > 40 ? '...' : ''),
+        title: formData.objective.slice(0, 40),
         content,
         formData: { ...formData },
         createdAt: new Date(),
@@ -49,10 +51,21 @@ const App: React.FC = () => {
       setCurrentContract(newContract);
       setHistory(prev => [newContract, ...prev]);
       setStatus(GenerationState.SUCCESS);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("Erro na geração:", error);
       setStatus(GenerationState.ERROR);
-      alert("Houve um problema ao gerar o contrato. Verifique sua conexão ou API Key.");
+      
+      let errorMsg = "Não foi possível gerar o contrato.";
+      
+      if (error.message?.includes("CONFIG_MISSING")) {
+        errorMsg = "Atenção: A API_KEY não foi configurada no painel do Vercel. Por favor, adicione-a em Settings > Environment Variables.";
+      } else if (error.message?.includes("403")) {
+        errorMsg = "Erro de Permissão: Sua API Key pode estar incorreta ou sem acesso ao Gemini 3.";
+      } else if (error.message?.includes("quota")) {
+        errorMsg = "Limite de uso atingido. Tente novamente em alguns minutos.";
+      }
+      
+      alert(errorMsg);
     }
   };
 
@@ -65,7 +78,7 @@ const App: React.FC = () => {
       const updated = { ...currentContract, content: newContent };
       setCurrentContract(updated);
       setHistory(prev => prev.map(c => c.id === updated.id ? updated : c));
-      alert('Contrato salvo no histórico do navegador!');
+      alert('Contrato atualizado no seu histórico local.');
     }
   };
 
@@ -80,7 +93,13 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col antialiased overflow-x-hidden">
-      {/* Navbar Mobile-Ready */}
+      {/* Banner de Aviso de Configuração */}
+      {isApiKeyMissing && (
+        <div className="bg-amber-600 text-white px-4 py-2 text-center text-xs font-bold uppercase tracking-widest animate-pulse no-print">
+          ⚠️ Configuração Pendente: Adicione a API_KEY no painel do Vercel para o app funcionar.
+        </div>
+      )}
+
       <header className="bg-white border-b border-slate-200/60 sticky top-0 z-40 backdrop-blur-md bg-white/80 no-print">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-3 cursor-pointer group" onClick={() => setCurrentContract(null)}>
@@ -89,14 +108,14 @@ const App: React.FC = () => {
             </div>
             <div className="flex flex-col">
               <h1 className="text-base md:text-xl font-bold tracking-tight text-slate-900 serif leading-none">iJota <span className="text-indigo-600">Contratos</span></h1>
-              <p className="hidden md:block text-[10px] text-slate-500 font-semibold tracking-widest uppercase mt-1">Inteligência Jurídica</p>
+              <p className="hidden md:block text-[10px] text-slate-500 font-semibold tracking-widest uppercase mt-1">Solução Inteligente</p>
             </div>
           </div>
           
           <div className="flex items-center gap-1 md:gap-3">
             <button 
               onClick={() => setShowHistory(!showHistory)} 
-              className="p-2 text-slate-600 hover:text-indigo-600 font-semibold flex items-center gap-1 md:gap-2 text-xs md:text-sm"
+              className="p-2 text-slate-600 hover:text-indigo-600 font-semibold flex items-center gap-1 md:gap-2 text-xs md:text-sm transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               <span className="hidden sm:inline">Histórico</span> ({history.length})
@@ -117,39 +136,39 @@ const App: React.FC = () => {
                   <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg shrink-0">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </div>
-                  <h2 className="text-xl md:text-2xl font-bold text-slate-800 serif">Novo Contrato</h2>
+                  <h2 className="text-xl md:text-2xl font-bold text-slate-800 serif">Informações Básicas</h2>
                 </div>
               </div>
 
               <div className="space-y-6 md:space-y-8">
                 <div className="space-y-3">
-                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Objetivo</label>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">O que você deseja contratar?</label>
                   <textarea
                     value={formData.objective}
                     onChange={(e) => updateField('objective', e.target.value.toUpperCase())}
-                    placeholder="EX: CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE CONSULTORIA"
+                    placeholder="EX: ALUGUEL DE SALA COMERCIAL POR 12 MESES"
                     className="w-full h-24 md:h-32 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Contratante (Parte A)</label>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Parte A (Contratante)</label>
                     <input
                       type="text"
                       value={formData.partyA}
                       onChange={(e) => updateField('partyA', e.target.value.toUpperCase())}
-                      placeholder="NOME OU RAZÃO SOCIAL"
+                      placeholder="NOME COMPLETO OU EMPRESA"
                       className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Contratado (Parte B)</label>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Parte B (Contratado)</label>
                     <input
                       type="text"
                       value={formData.partyB}
                       onChange={(e) => updateField('partyB', e.target.value.toUpperCase())}
-                      placeholder="NOME OU RAZÃO SOCIAL"
+                      placeholder="NOME COMPLETO OU EMPRESA"
                       className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
                     />
                   </div>
@@ -157,7 +176,7 @@ const App: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Estilo da Linguagem</label>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Estilo da Redação</label>
                     <select
                       value={formData.tone}
                       onChange={(e) => updateField('tone', e.target.value as LanguageTone)}
@@ -169,12 +188,12 @@ const App: React.FC = () => {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Cláusulas Específicas</label>
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Observações Adicionais</label>
                     <input
                       type="text"
                       value={formData.specificClauses}
                       onChange={(e) => updateField('specificClauses', e.target.value)}
-                      placeholder="Ex: Pagamento até dia 05, Multa de 20%"
+                      placeholder="Ex: Pagamento mensal de R$ 1000"
                       className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                     />
                   </div>
@@ -183,10 +202,10 @@ const App: React.FC = () => {
                 <Button 
                   onClick={handleGenerate} 
                   isLoading={status === GenerationState.LOADING}
-                  disabled={!formData.objective.trim() || status === GenerationState.LOADING}
+                  disabled={!formData.objective.trim() || status === GenerationState.LOADING || isApiKeyMissing}
                   className="w-full h-14 md:h-16 text-base md:text-lg font-bold rounded-xl md:rounded-2xl shadow-lg bg-slate-900 border-none"
                 >
-                  Gerar com Gemini AI
+                  {isApiKeyMissing ? "Aguardando Configuração..." : "Gerar Minuta do Contrato"}
                 </Button>
               </div>
             </div>
@@ -218,7 +237,7 @@ const App: React.FC = () => {
 
             <button 
               onClick={() => setIsMobileChatOpen(true)}
-              className={`lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 ${isMobileChatOpen ? 'scale-0' : 'scale-100'} no-print`}
+              className={`lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 ${isMobileChatOpen ? 'scale-0' : 'scale-100'} no-print active:scale-95 transition-transform`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
             </button>
@@ -231,7 +250,7 @@ const App: React.FC = () => {
             <div className="relative w-full max-w-[320px] md:max-w-md bg-white shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-300">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-bold serif text-slate-900">Histórico</h3>
+                  <h3 className="text-xl font-bold serif text-slate-900">Meus Contratos</h3>
                 </div>
                 <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -239,17 +258,18 @@ const App: React.FC = () => {
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {history.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 text-sm">Nenhum contrato.</div>
+                  <div className="text-center py-12 text-slate-400 text-sm">Ainda não há contratos criados.</div>
                 ) : (
                   history.map(c => (
                     <div 
                       key={c.id} 
                       onClick={() => { setCurrentContract(c); setShowHistory(false); setStatus(GenerationState.SUCCESS); }}
-                      className="p-4 bg-white border border-slate-100 rounded-xl cursor-pointer hover:border-indigo-500 transition-all"
+                      className="p-4 bg-white border border-slate-100 rounded-xl cursor-pointer hover:border-indigo-500 transition-all group"
                     >
-                      <h4 className="font-bold text-slate-800 uppercase text-[10px] truncate mb-1">{c.title}</h4>
-                      <div className="text-[8px] font-bold text-slate-400 uppercase">
-                        {new Date(c.createdAt).toLocaleDateString()} - {c.formData.tone}
+                      <h4 className="font-bold text-slate-800 uppercase text-[10px] truncate mb-1 group-hover:text-indigo-600 transition-colors">{c.title}</h4>
+                      <div className="text-[8px] font-bold text-slate-400 uppercase flex justify-between">
+                        <span>{new Date(c.createdAt).toLocaleDateString()}</span>
+                        <span>{c.formData.tone}</span>
                       </div>
                     </div>
                   ))
@@ -263,9 +283,9 @@ const App: React.FC = () => {
       <footer className="bg-white border-t border-slate-100 py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest no-print">
         <div className="flex items-center gap-2 text-emerald-600">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-          Armazenamento Local Ativo
+          {isApiKeyMissing ? "Aguardando API KEY" : "Servidor Online"}
         </div>
-        <div className="text-center">© 2025 Solution. Todos os direitos reservados.</div>
+        <div className="text-center">© 2025 iJota Inteligência Jurídica.</div>
       </footer>
     </div>
   );
