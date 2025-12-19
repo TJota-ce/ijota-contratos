@@ -2,16 +2,6 @@
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import { ContractFormData } from "../types";
 
-export const createAIClient = () => {
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("API_KEY_NOT_SET");
-  }
-  
-  return new GoogleGenAI({ apiKey });
-};
-
 const getSystemInstruction = (tone: string) => {
   let toneGuidance = "";
   if (tone === 'Formal e Rigoroso') {
@@ -22,27 +12,28 @@ const getSystemInstruction = (tone: string) => {
     toneGuidance = "Use 'Plain Language' (Linguagem Simples), sem jargões e com sentenças curtas.";
   }
 
-  return `Você é o "iJota Contratos", um assistente jurídico sênior brasileiro.
+  return `Você é o "iJota Contratos", um assistente jurídico sênior brasileiro especializado em redação contratual.
 Sua tarefa é gerar contratos completos, juridicamente válidos e bem estruturados em português.
 ESTILO: ${toneGuidance}
 
-REGRAS:
-1. Identifique as Partes claramente.
-2. Inclua cláusulas de Objeto, Preço/Pagamento, Prazo, Obrigações das Partes, Rescisão, Multas, Confidencialidade e Foro.
-3. Formate em Markdown estruturado com títulos e negritos.`;
+REGRAS OBRIGATÓRIAS:
+1. Identifique as Partes (Nacionalidade, Estado Civil, Profissão, CPF/CNPJ, Endereço).
+2. Inclua cláusulas de Objeto, Preço/Pagamento, Prazo, Obrigações, Rescisão, Multas e Foro.
+3. Formate em Markdown estruturado com títulos claros.`;
 };
 
 export const generateContractDraft = async (data: ContractFormData): Promise<string> => {
-  const ai = createAIClient();
-  const prompt = `GERE UM CONTRATO COMPLETO: Objetivo: ${data.objective}. Parte A: ${data.partyA}. Parte B: ${data.partyB}. Detalhes Adicionais: ${data.specificClauses}`;
+  // Criar instância no momento da chamada para garantir que pegue a chave mais recente
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `GERE UM CONTRATO COMPLETO: Objetivo: ${data.objective}. Parte A: ${data.partyA}. Parte B: ${data.partyB}. Cláusulas extras desejadas: ${data.specificClauses}`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: [{ parts: [{ text: prompt }] }],
     config: {
       systemInstruction: getSystemInstruction(data.tone),
-      temperature: 0.3, // Menor temperatura para maior consistência jurídica
-      thinkingConfig: { thinkingBudget: 4000 }
+      temperature: 0.3,
+      thinkingConfig: { thinkingBudget: 16000 } // Ativa o raciocínio profundo para contratos
     },
   });
 
@@ -50,11 +41,12 @@ export const generateContractDraft = async (data: ContractFormData): Promise<str
 };
 
 export const createContractChat = (initialContext: string, tone: string): Chat => {
-  const ai = createAIClient();
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   return ai.chats.create({
     model: 'gemini-3-pro-preview',
     config: {
-      systemInstruction: `${getSystemInstruction(tone)}\n\nO usuário enviará solicitações de alteração para este contrato. Responda sempre com o TEXTO INTEGRAL atualizado.\n\nCONTEXTO DO CONTRATO ATUAL:\n${initialContext}`,
+      systemInstruction: `${getSystemInstruction(tone)}\n\nCONTEXTO DO CONTRATO ATUAL:\n${initialContext}\n\nResponda sempre com o texto integral atualizado do contrato após as mudanças solicitadas.`,
+      thinkingConfig: { thinkingBudget: 8000 }
     },
   });
 };
