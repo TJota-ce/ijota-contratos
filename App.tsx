@@ -52,13 +52,14 @@ const App: React.FC = () => {
       console.error("Erro na geração:", error);
       setStatus(GenerationState.ERROR);
       
-      let errorMsg = "Ocorreu um erro ao gerar o contrato.";
+      let errorMsg = "Ocorreu um erro inesperado.";
       
-      // Tratamento de erro detalhado caso a chave não funcione
       if (error.message?.includes("CONFIG_MISSING")) {
-        errorMsg = "CONFIGURAÇÃO NECESSÁRIA:\n\nA chave API_KEY não foi detectada pelo sistema.\n\n1. No Vercel, confirme se o nome da variável é exatamente API_KEY.\n2. Se já adicionou, você PRECISA ir na aba 'Deployments' e fazer um 'Redeploy'.";
+        errorMsg = "ERRO DE CONFIGURAÇÃO:\n\nA chave API_KEY não foi encontrada.\n\n1. Verifique se o nome no Vercel é API_KEY (com underline).\n2. Realize um REDEPLOY completo no painel do Vercel.\n3. Certifique-se de usar uma janela anônima para testar.";
       } else if (error.message?.includes("403") || error.message?.includes("not valid")) {
-        errorMsg = "ERRO DE CHAVE:\n\nA chave API_KEY inserida parece ser inválida ou não tem permissão para usar o Gemini.";
+        errorMsg = "CHAVE INVÁLIDA:\n\nA chave no Vercel está incorreta ou expirou. Copie novamente do Google AI Studio.";
+      } else {
+        errorMsg = "Erro ao conectar com a IA: " + (error.message || "Verifique sua conexão.");
       }
       
       alert(errorMsg);
@@ -74,7 +75,7 @@ const App: React.FC = () => {
       const updated = { ...currentContract, content: newContent };
       setCurrentContract(updated);
       setHistory(prev => prev.map(c => c.id === updated.id ? updated : c));
-      alert('Contrato salvo com sucesso.');
+      alert('Contrato salvo no histórico do navegador.');
     }
   };
 
@@ -272,9 +273,9 @@ const App: React.FC = () => {
       <footer className="bg-white border-t border-slate-100 py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest no-print">
         <div className="flex items-center gap-2">
            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-           <span className="text-emerald-600">iJota Inteligência Jurídica</span>
+           <span className="text-emerald-600 font-bold uppercase tracking-widest">iJota Inteligência Jurídica</span>
         </div>
-        <div className="text-center">© 2025 iJota. Versão 1.2</div>
+        <div className="text-center">© 2025 iJota. Versão 1.3 (Final)</div>
       </footer>
     </div>
   );

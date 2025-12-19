@@ -52,11 +52,6 @@
             }
         }
     </style>
-    
-    <!-- Correção para evitar erro de 'process is not defined' no Vercel/GitHub -->
-    <script>
-        window.process = window.process || { env: {} };
-    </script>
 
     <script type="importmap">
     {
@@ -71,7 +66,6 @@
 </head>
 <body class="bg-slate-50 text-slate-900">
     <div id="root"></div>
-    <!-- PONTO DE ENTRADA DO APLICATIVO - CRUCIAL PARA NÃO FICAR EM BRANCO -->
     <script type="module" src="index.tsx"></script>
 </body>
 </html>

@@ -3,9 +3,11 @@ import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import { ContractFormData } from "../types";
 
 export const createAIClient = () => {
-  const apiKey = process.env.API_KEY;
+  // Tenta buscar a chave de múltiplas fontes possíveis em ambientes de deploy
+  const apiKey = (window as any).process?.env?.API_KEY || (process as any).env?.API_KEY;
   
-  if (!apiKey || apiKey === "undefined" || apiKey === "") {
+  if (!apiKey || apiKey === "undefined" || apiKey === "" || apiKey === "null") {
+    console.error("API_KEY não encontrada nas variáveis de ambiente.");
     throw new Error("CONFIG_MISSING");
   }
   
