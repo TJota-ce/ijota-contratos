@@ -33,6 +33,7 @@ REGRAS:
 };
 
 export const generateContractDraft = async (data: ContractFormData): Promise<string> => {
+  // Criamos o cliente sempre no momento da execução para garantir que a chave esteja presente
   const ai = createAIClient();
   const prompt = `GERE UM CONTRATO COMPLETO: Objetivo: ${data.objective}. Parte A: ${data.partyA}. Parte B: ${data.partyB}. Extras: ${data.specificClauses}`;
 

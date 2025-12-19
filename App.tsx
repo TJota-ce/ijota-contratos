@@ -19,8 +19,35 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<GenerationState>(GenerationState.IDLE);
   const [showHistory, setShowHistory] = useState(false);
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
-  const [needsKey, setNeedsKey] = useState(false);
   
+  // Estado para controle da Chave API
+  const [hasApiKey, setHasApiKey] = useState<boolean>(true);
+
+  useEffect(() => {
+    const checkKey = async () => {
+      // Se não houver chave no process.env (comum no Vercel frontend), verifica se o usuário já selecionou uma
+      if (!process.env.API_KEY) {
+        if (window.aistudio) {
+          const selected = await window.aistudio.hasSelectedApiKey();
+          setHasApiKey(selected);
+        } else {
+          setHasApiKey(false);
+        }
+      }
+    };
+    checkKey();
+  }, []);
+
+  const handleOpenKeySelector = async () => {
+    if (window.aistudio) {
+      await window.aistudio.openSelectKey();
+      // Conforme as regras, assumimos sucesso após o trigger para evitar race condition
+      setHasApiKey(true);
+    } else {
+      alert("Ambiente de configuração não detectado. Se você está no Vercel, certifique-se de que a variável se chama API_KEY e faça um redeploy.");
+    }
+  };
+
   const [history, setHistory] = useState<Contract[]>(() => {
     try {
       const saved = localStorage.getItem('ijota_history');
@@ -32,32 +59,6 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('ijota_history', JSON.stringify(history));
   }, [history]);
-
-  // Verifica se temos uma chave configurada no carregamento
-  useEffect(() => {
-    const checkKey = async () => {
-      const hasKey = !!process.env.API_KEY;
-      if (!hasKey) {
-        // Se estiver no ambiente do AI Studio, verifica o seletor
-        if ((window as any).aistudio) {
-          const selected = await (window as any).aistudio.hasSelectedApiKey();
-          setNeedsKey(!selected);
-        } else {
-          setNeedsKey(true);
-        }
-      }
-    };
-    checkKey();
-  }, []);
-
-  const handleOpenKeySelector = async () => {
-    if ((window as any).aistudio) {
-      await (window as any).aistudio.openSelectKey();
-      setNeedsKey(false);
-    } else {
-      alert("A chave API não foi encontrada no ambiente Vercel.\n\nPor favor, certifique-se de que a variável de ambiente se chama exatamente API_KEY e que você realizou o redeploy.");
-    }
-  };
 
   const handleGenerate = async () => {
     if (!formData.objective.trim()) return;
@@ -79,10 +80,11 @@ const App: React.FC = () => {
       console.error("Erro na geração:", error);
       setStatus(GenerationState.ERROR);
       
-      if (error.message?.includes("API_KEY_NOT_SET") || error.message?.includes("not found")) {
-        setNeedsKey(true);
+      if (error.message?.includes("Requested entity was not found") || error.message?.includes("API_KEY_NOT_SET")) {
+        setHasApiKey(false);
+        alert("Sua chave API expirou ou não foi encontrada. Por favor, conecte novamente.");
       } else {
-        alert("Erro ao conectar com a IA: " + (error.message || "Verifique sua chave e conexão."));
+        alert("Erro ao conectar com o Gemini: " + (error.message || "Verifique sua conexão."));
       }
     }
   };
@@ -96,7 +98,7 @@ const App: React.FC = () => {
       const updated = { ...currentContract, content: newContent };
       setCurrentContract(updated);
       setHistory(prev => prev.map(c => c.id === updated.id ? updated : c));
-      alert('Contrato salvo no histórico.');
+      alert('Contrato atualizado no histórico.');
     }
   };
 
@@ -108,6 +110,33 @@ const App: React.FC = () => {
       if (window.innerWidth < 1024) setIsMobileChatOpen(false);
     }
   };
+
+  // Tela de Configuração Inicial (Seletor de Chave)
+  if (!hasApiKey && !currentContract) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl border border-slate-100 text-center space-y-8 animate-in fade-in zoom-in duration-500">
+          <div className="w-20 h-20 bg-indigo-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg rotate-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3m-3-3l-2.5-2.5"/></svg>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold text-slate-900 serif">Ativar Inteligência</h2>
+            <p className="text-slate-500 text-sm leading-relaxed">
+              Para gerar contratos profissionais, você precisa conectar sua conta do Google AI Studio. É rápido e seguro.
+            </p>
+          </div>
+          <div className="space-y-4">
+            <Button onClick={handleOpenKeySelector} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl font-bold text-lg shadow-indigo-200">
+              Conectar com Google AI Studio
+            </Button>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+              Consulte a <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline text-indigo-500 hover:text-indigo-600">Documentação de Faturamento</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col antialiased overflow-x-hidden">
@@ -139,25 +168,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-        {needsKey && !currentContract ? (
-          <div className="flex-1 flex items-center justify-center p-6 bg-slate-50">
-            <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-slate-200 text-center space-y-6">
-              <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              </div>
-              <h2 className="text-2xl font-bold text-slate-900 serif">Configuração Necessária</h2>
-              <p className="text-slate-500 text-sm">
-                Para começar a gerar contratos, é necessário conectar sua conta do Google AI Studio ou configurar a chave API no ambiente.
-              </p>
-              <Button onClick={handleOpenKeySelector} className="w-full h-12 bg-indigo-600 border-none rounded-xl font-bold">
-                Conectar com Google AI Studio
-              </Button>
-              <p className="text-[10px] text-slate-400">
-                Consulte a <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="underline text-indigo-500">documentação de faturamento</a> para saber mais sobre os limites.
-              </p>
-            </div>
-          </div>
-        ) : !currentContract ? (
+        {!currentContract ? (
           <div className="flex-1 overflow-y-auto px-4 py-8 md:px-6 md:py-12 bg-white no-print">
             <div className="max-w-4xl mx-auto">
               <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 border-b border-slate-100 pb-6 gap-4">
@@ -314,7 +325,7 @@ const App: React.FC = () => {
            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
            <span className="text-emerald-600 font-bold uppercase tracking-widest">iJota Inteligência Jurídica</span>
         </div>
-        <div className="text-center">© 2025 iJota. Versão 1.4 (LTS)</div>
+        <div className="text-center">© 2025 iJota. Versão 1.5 (PRO)</div>
       </footer>
     </div>
   );
