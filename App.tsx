@@ -54,11 +54,11 @@ const App: React.FC = () => {
       
       let errorMsg = "Ocorreu um erro ao gerar o contrato.";
       
-      // Se a API_KEY estiver faltando no momento da chamada
-      if (error.message?.includes("CONFIG_MISSING") || error.message?.includes("API_KEY")) {
-        errorMsg = "ERRO TÉCNICO: A chave API_KEY não foi encontrada. \n\n1. Verifique se o nome no Vercel está exatamente 'API_KEY'.\n2. Verifique se você fez o 'REDEPLOY' após salvar.\n3. Tente em uma aba anônima.";
-      } else if (error.message?.includes("403") || error.message?.includes("API key not valid")) {
-        errorMsg = "CHAVE INVÁLIDA: A API_KEY configurada no Vercel não é válida. Verifique no Google AI Studio.";
+      // Tratamento de erro detalhado caso a chave não funcione
+      if (error.message?.includes("CONFIG_MISSING")) {
+        errorMsg = "CONFIGURAÇÃO NECESSÁRIA:\n\nA chave API_KEY não foi detectada pelo sistema.\n\n1. No Vercel, confirme se o nome da variável é exatamente API_KEY.\n2. Se já adicionou, você PRECISA ir na aba 'Deployments' e fazer um 'Redeploy'.";
+      } else if (error.message?.includes("403") || error.message?.includes("not valid")) {
+        errorMsg = "ERRO DE CHAVE:\n\nA chave API_KEY inserida parece ser inválida ou não tem permissão para usar o Gemini.";
       }
       
       alert(errorMsg);

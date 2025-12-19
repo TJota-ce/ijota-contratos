@@ -2,13 +2,11 @@
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import { ContractFormData } from "../types";
 
-// Inicializa o cliente verificando a existência da chave
 export const createAIClient = () => {
   const apiKey = process.env.API_KEY;
   
-  // Verifica se a chave existe e não é a string "undefined" que alguns sistemas injetam
   if (!apiKey || apiKey === "undefined" || apiKey === "") {
-    throw new Error("CONFIG_MISSING: API_KEY não configurada. Adicione-a nas Environment Variables do Vercel.");
+    throw new Error("CONFIG_MISSING");
   }
   
   return new GoogleGenAI({ apiKey });
@@ -21,44 +19,36 @@ const getSystemInstruction = (tone: string) => {
   } else if (tone === 'Equilibrado') {
     toneGuidance = "Use uma linguagem profissional moderna, clara e direta, mantendo a segurança jurídica.";
   } else {
-    toneGuidance = "Use 'Plain Language' (Linguagem Simples), sem jargões e com sentenças curtas para fácil compreensão por leigos.";
+    toneGuidance = "Use 'Plain Language' (Linguagem Simples), sem jargões e com sentenças curtas.";
   }
 
-  return `Você é o "iJota Contratos", um assistente jurídico brasileiro especialista em redação contratual.
-Sua tarefa é gerar contratos completos, juridicamente válidos no Brasil, em português.
+  return `Você é o "iJota Contratos", um assistente jurídico brasileiro.
+Sua tarefa é gerar contratos completos em português.
 ESTILO: ${toneGuidance}
 
 REGRAS:
-1. Identifique claramente as Partes: Parte A (CONTRATANTE/LOCADOR) e Parte B (CONTRATADO/LOCATÁRIO).
-2. Inclua obrigatoriamente as cláusulas: Objeto, Valor e Forma de Pagamento, Prazo, Obrigações, Rescisão e Foro.
-3. Formate o texto usando Markdown (Use ## para títulos de cláusulas e negrito para termos importantes).
-4. Retorne SEMPRE o texto integral do contrato, pronto para uso.`;
+1. Identifique as Partes claramente.
+2. Inclua cláusulas de Objeto, Pagamento, Prazo, Obrigações, Rescisão e Foro.
+3. Formate em Markdown.`;
 };
 
 export const generateContractDraft = async (data: ContractFormData): Promise<string> => {
   try {
     const ai = createAIClient();
-    const prompt = `
-      GERE UM CONTRATO COMPLETO COM ESTES DADOS:
-      - Objetivo Principal: ${data.objective}
-      - Nome/Razão Social Parte A: ${data.partyA}
-      - Nome/Razão Social Parte B: ${data.partyB}
-      - Detalhes/Cláusulas Adicionais solicitadas: ${data.specificClauses || "Seguir padrão de mercado para este tipo de contrato."}
-    `;
+    const prompt = `GERE UM CONTRATO COMPLETO: Objetivo: ${data.objective}. Parte A: ${data.partyA}. Parte B: ${data.partyB}. Extras: ${data.specificClauses}`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{ parts: [{ text: prompt }] }],
       config: {
         systemInstruction: getSystemInstruction(data.tone),
-        temperature: 0.4, // Menor temperatura para maior consistência jurídica
+        temperature: 0.4,
       },
     });
 
-    if (!response.text) throw new Error("A API retornou um conteúdo vazio.");
-    return response.text;
+    return response.text || "";
   } catch (error: any) {
-    console.error("Erro Gemini Service:", error);
+    console.error("Erro Gemini:", error);
     throw error;
   }
 };
@@ -68,7 +58,7 @@ export const createContractChat = (initialContext: string, tone: string): Chat =
   return ai.chats.create({
     model: 'gemini-3-flash-preview',
     config: {
-      systemInstruction: `${getSystemInstruction(tone)}\n\nCONTEXTO DO CONTRATO ATUAL (Sempre baseie suas respostas e alterações neste texto):\n${initialContext}`,
+      systemInstruction: `${getSystemInstruction(tone)}\n\nCONTEXTO:\n${initialContext}`,
     },
   });
 };
