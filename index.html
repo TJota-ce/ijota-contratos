@@ -7,11 +7,14 @@
     <title>iJota Contratos - Inteligência Jurídica</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <script>
+        // Garante que a estrutura básica de process.env exista para evitar erros de referência
+        window.process = window.process || { env: {} };
+    </script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .serif { font-family: 'Playfair Display', serif; }
         
-        /* Custom scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -28,28 +31,16 @@
                 height: auto !important;
                 overflow: visible !important;
             }
-            main {
-                display: block !important;
-                overflow: visible !important;
-                height: auto !important;
-            }
             .print-content {
                 display: block !important;
-                visibility: visible !important;
-                position: relative !important;
                 padding: 1cm !important;
                 font-family: 'Times New Roman', Times, serif !important;
                 font-size: 12pt !important;
                 line-height: 1.6 !important;
                 color: black !important;
-                background: white !important;
                 white-space: pre-wrap !important;
-                word-wrap: break-word !important;
             }
-            @page {
-                size: A4;
-                margin: 2.5cm 2cm;
-            }
+            @page { size: A4; margin: 2.5cm 2cm; }
         }
     </style>
 

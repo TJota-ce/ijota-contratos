@@ -3,12 +3,10 @@ import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import { ContractFormData } from "../types";
 
 export const createAIClient = () => {
-  // Tenta buscar a chave de múltiplas fontes possíveis em ambientes de deploy
-  const apiKey = (window as any).process?.env?.API_KEY || (process as any).env?.API_KEY;
+  const apiKey = process.env.API_KEY;
   
-  if (!apiKey || apiKey === "undefined" || apiKey === "" || apiKey === "null") {
-    console.error("API_KEY não encontrada nas variáveis de ambiente.");
-    throw new Error("CONFIG_MISSING");
+  if (!apiKey) {
+    throw new Error("API_KEY_NOT_SET");
   }
   
   return new GoogleGenAI({ apiKey });
@@ -35,24 +33,19 @@ REGRAS:
 };
 
 export const generateContractDraft = async (data: ContractFormData): Promise<string> => {
-  try {
-    const ai = createAIClient();
-    const prompt = `GERE UM CONTRATO COMPLETO: Objetivo: ${data.objective}. Parte A: ${data.partyA}. Parte B: ${data.partyB}. Extras: ${data.specificClauses}`;
+  const ai = createAIClient();
+  const prompt = `GERE UM CONTRATO COMPLETO: Objetivo: ${data.objective}. Parte A: ${data.partyA}. Parte B: ${data.partyB}. Extras: ${data.specificClauses}`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: [{ parts: [{ text: prompt }] }],
-      config: {
-        systemInstruction: getSystemInstruction(data.tone),
-        temperature: 0.4,
-      },
-    });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: [{ parts: [{ text: prompt }] }],
+    config: {
+      systemInstruction: getSystemInstruction(data.tone),
+      temperature: 0.4,
+    },
+  });
 
-    return response.text || "";
-  } catch (error: any) {
-    console.error("Erro Gemini:", error);
-    throw error;
-  }
+  return response.text || "";
 };
 
 export const createContractChat = (initialContext: string, tone: string): Chat => {

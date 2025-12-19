@@ -19,6 +19,7 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<GenerationState>(GenerationState.IDLE);
   const [showHistory, setShowHistory] = useState(false);
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
+  const [needsKey, setNeedsKey] = useState(false);
   
   const [history, setHistory] = useState<Contract[]>(() => {
     try {
@@ -31,6 +32,32 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('ijota_history', JSON.stringify(history));
   }, [history]);
+
+  // Verifica se temos uma chave configurada no carregamento
+  useEffect(() => {
+    const checkKey = async () => {
+      const hasKey = !!process.env.API_KEY;
+      if (!hasKey) {
+        // Se estiver no ambiente do AI Studio, verifica o seletor
+        if ((window as any).aistudio) {
+          const selected = await (window as any).aistudio.hasSelectedApiKey();
+          setNeedsKey(!selected);
+        } else {
+          setNeedsKey(true);
+        }
+      }
+    };
+    checkKey();
+  }, []);
+
+  const handleOpenKeySelector = async () => {
+    if ((window as any).aistudio) {
+      await (window as any).aistudio.openSelectKey();
+      setNeedsKey(false);
+    } else {
+      alert("A chave API não foi encontrada no ambiente Vercel.\n\nPor favor, certifique-se de que a variável de ambiente se chama exatamente API_KEY e que você realizou o redeploy.");
+    }
+  };
 
   const handleGenerate = async () => {
     if (!formData.objective.trim()) return;
@@ -52,17 +79,11 @@ const App: React.FC = () => {
       console.error("Erro na geração:", error);
       setStatus(GenerationState.ERROR);
       
-      let errorMsg = "Ocorreu um erro inesperado.";
-      
-      if (error.message?.includes("CONFIG_MISSING")) {
-        errorMsg = "ERRO DE CONFIGURAÇÃO:\n\nA chave API_KEY não foi encontrada.\n\n1. Verifique se o nome no Vercel é API_KEY (com underline).\n2. Realize um REDEPLOY completo no painel do Vercel.\n3. Certifique-se de usar uma janela anônima para testar.";
-      } else if (error.message?.includes("403") || error.message?.includes("not valid")) {
-        errorMsg = "CHAVE INVÁLIDA:\n\nA chave no Vercel está incorreta ou expirou. Copie novamente do Google AI Studio.";
+      if (error.message?.includes("API_KEY_NOT_SET") || error.message?.includes("not found")) {
+        setNeedsKey(true);
       } else {
-        errorMsg = "Erro ao conectar com a IA: " + (error.message || "Verifique sua conexão.");
+        alert("Erro ao conectar com a IA: " + (error.message || "Verifique sua chave e conexão."));
       }
-      
-      alert(errorMsg);
     }
   };
 
@@ -75,7 +96,7 @@ const App: React.FC = () => {
       const updated = { ...currentContract, content: newContent };
       setCurrentContract(updated);
       setHistory(prev => prev.map(c => c.id === updated.id ? updated : c));
-      alert('Contrato salvo no histórico do navegador.');
+      alert('Contrato salvo no histórico.');
     }
   };
 
@@ -118,7 +139,25 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-        {!currentContract ? (
+        {needsKey && !currentContract ? (
+          <div className="flex-1 flex items-center justify-center p-6 bg-slate-50">
+            <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-slate-200 text-center space-y-6">
+              <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 serif">Configuração Necessária</h2>
+              <p className="text-slate-500 text-sm">
+                Para começar a gerar contratos, é necessário conectar sua conta do Google AI Studio ou configurar a chave API no ambiente.
+              </p>
+              <Button onClick={handleOpenKeySelector} className="w-full h-12 bg-indigo-600 border-none rounded-xl font-bold">
+                Conectar com Google AI Studio
+              </Button>
+              <p className="text-[10px] text-slate-400">
+                Consulte a <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="underline text-indigo-500">documentação de faturamento</a> para saber mais sobre os limites.
+              </p>
+            </div>
+          </div>
+        ) : !currentContract ? (
           <div className="flex-1 overflow-y-auto px-4 py-8 md:px-6 md:py-12 bg-white no-print">
             <div className="max-w-4xl mx-auto">
               <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 border-b border-slate-100 pb-6 gap-4">
@@ -184,7 +223,7 @@ const App: React.FC = () => {
                       value={formData.specificClauses}
                       onChange={(e) => updateField('specificClauses', e.target.value)}
                       placeholder="Ex: Pagamento mensal de R$ 1000"
-                      className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                      className="w-full px-4 h-12 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                     />
                   </div>
                 </div>
@@ -275,7 +314,7 @@ const App: React.FC = () => {
            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
            <span className="text-emerald-600 font-bold uppercase tracking-widest">iJota Inteligência Jurídica</span>
         </div>
-        <div className="text-center">© 2025 iJota. Versão 1.3 (Final)</div>
+        <div className="text-center">© 2025 iJota. Versão 1.4 (LTS)</div>
       </footer>
     </div>
   );
