@@ -22,27 +22,27 @@ const getSystemInstruction = (tone: string) => {
     toneGuidance = "Use 'Plain Language' (Linguagem Simples), sem jargões e com sentenças curtas.";
   }
 
-  return `Você é o "iJota Contratos", um assistente jurídico brasileiro.
-Sua tarefa é gerar contratos completos em português.
+  return `Você é o "iJota Contratos", um assistente jurídico sênior brasileiro.
+Sua tarefa é gerar contratos completos, juridicamente válidos e bem estruturados em português.
 ESTILO: ${toneGuidance}
 
 REGRAS:
 1. Identifique as Partes claramente.
-2. Inclua cláusulas de Objeto, Pagamento, Prazo, Obrigações, Rescisão e Foro.
-3. Formate em Markdown.`;
+2. Inclua cláusulas de Objeto, Preço/Pagamento, Prazo, Obrigações das Partes, Rescisão, Multas, Confidencialidade e Foro.
+3. Formate em Markdown estruturado com títulos e negritos.`;
 };
 
 export const generateContractDraft = async (data: ContractFormData): Promise<string> => {
-  // Criamos o cliente sempre no momento da execução para garantir que a chave esteja presente
   const ai = createAIClient();
-  const prompt = `GERE UM CONTRATO COMPLETO: Objetivo: ${data.objective}. Parte A: ${data.partyA}. Parte B: ${data.partyB}. Extras: ${data.specificClauses}`;
+  const prompt = `GERE UM CONTRATO COMPLETO: Objetivo: ${data.objective}. Parte A: ${data.partyA}. Parte B: ${data.partyB}. Detalhes Adicionais: ${data.specificClauses}`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-3-pro-preview',
     contents: [{ parts: [{ text: prompt }] }],
     config: {
       systemInstruction: getSystemInstruction(data.tone),
-      temperature: 0.4,
+      temperature: 0.3, // Menor temperatura para maior consistência jurídica
+      thinkingConfig: { thinkingBudget: 4000 }
     },
   });
 
@@ -52,9 +52,9 @@ export const generateContractDraft = async (data: ContractFormData): Promise<str
 export const createContractChat = (initialContext: string, tone: string): Chat => {
   const ai = createAIClient();
   return ai.chats.create({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-3-pro-preview',
     config: {
-      systemInstruction: `${getSystemInstruction(tone)}\n\nCONTEXTO:\n${initialContext}`,
+      systemInstruction: `${getSystemInstruction(tone)}\n\nO usuário enviará solicitações de alteração para este contrato. Responda sempre com o TEXTO INTEGRAL atualizado.\n\nCONTEXTO DO CONTRATO ATUAL:\n${initialContext}`,
     },
   });
 };

@@ -20,31 +20,36 @@ const App: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   
-  // Estado para controle da Chave API
-  const [hasApiKey, setHasApiKey] = useState<boolean>(true);
+  // Se houver chave no process.env, não precisamos do seletor
+  const [hasApiKey, setHasApiKey] = useState<boolean>(!!process.env.API_KEY);
 
   useEffect(() => {
     const checkKey = async () => {
-      // Se não houver chave no process.env (comum no Vercel frontend), verifica se o usuário já selecionou uma
-      if (!process.env.API_KEY) {
-        if (window.aistudio) {
-          const selected = await window.aistudio.hasSelectedApiKey();
-          setHasApiKey(selected);
-        } else {
-          setHasApiKey(false);
-        }
+      // Se já temos a chave do Vercel, não faz nada
+      if (process.env.API_KEY) {
+        setHasApiKey(true);
+        return;
+      }
+
+      // Se não temos a chave e estamos no ambiente que suporta o seletor
+      if ((window as any).aistudio) {
+        const selected = await (window as any).aistudio.hasSelectedApiKey();
+        setHasApiKey(selected);
+      } else {
+        // Se estamos no Vercel e não há chave, deixamos como true para tentar a chamada
+        // e capturar o erro real da API caso a variável não tenha sido injetada.
+        setHasApiKey(true);
       }
     };
     checkKey();
   }, []);
 
   const handleOpenKeySelector = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      // Conforme as regras, assumimos sucesso após o trigger para evitar race condition
+    if ((window as any).aistudio) {
+      await (window as any).aistudio.openSelectKey();
       setHasApiKey(true);
     } else {
-      alert("Ambiente de configuração não detectado. Se você está no Vercel, certifique-se de que a variável se chama API_KEY e faça um redeploy.");
+      alert("Ambiente de produção Vercel detectado.\n\nA chave API_KEY não foi encontrada nas variáveis de ambiente do seu projeto Vercel.\n\n1. Vá em Settings > Environment Variables no Vercel.\n2. Adicione API_KEY com sua chave do Google AI Studio.\n3. Faça um novo Deploy.");
     }
   };
 
@@ -80,11 +85,11 @@ const App: React.FC = () => {
       console.error("Erro na geração:", error);
       setStatus(GenerationState.ERROR);
       
-      if (error.message?.includes("Requested entity was not found") || error.message?.includes("API_KEY_NOT_SET")) {
+      if (error.message?.includes("API_KEY_NOT_SET") || error.message?.includes("403") || error.message?.includes("not found")) {
+        // Se a chamada falhou por falta de chave, aí sim mostramos a tela de bloqueio
         setHasApiKey(false);
-        alert("Sua chave API expirou ou não foi encontrada. Por favor, conecte novamente.");
       } else {
-        alert("Erro ao conectar com o Gemini: " + (error.message || "Verifique sua conexão."));
+        alert("Erro no Gemini: " + (error.message || "Verifique sua conexão."));
       }
     }
   };
@@ -98,7 +103,7 @@ const App: React.FC = () => {
       const updated = { ...currentContract, content: newContent };
       setCurrentContract(updated);
       setHistory(prev => prev.map(c => c.id === updated.id ? updated : c));
-      alert('Contrato atualizado no histórico.');
+      alert('Contrato salvo!');
     }
   };
 
@@ -111,26 +116,26 @@ const App: React.FC = () => {
     }
   };
 
-  // Tela de Configuração Inicial (Seletor de Chave)
+  // Só bloqueia se tivermos CERTEZA que não há chave
   if (!hasApiKey && !currentContract) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl border border-slate-100 text-center space-y-8 animate-in fade-in zoom-in duration-500">
-          <div className="w-20 h-20 bg-indigo-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg rotate-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3m-3-3l-2.5-2.5"/></svg>
+        <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl border border-slate-100 text-center space-y-8">
+          <div className="w-20 h-20 bg-amber-500 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4a1 1 0 0 0-1.4 0l-2.1 2.1a1 1 0 0 0 0 1.4Z"/><path d="m15.5 7.5-3 3"/><path d="m15.5 7.5-6-6"/><path d="m13 10.5 2 2"/><path d="m5 18.5-3 3"/><path d="M9.5 14 2 21.5"/><path d="m7 16 2 2"/><path d="m11 12 2 2"/></svg>
           </div>
           <div className="space-y-2">
-            <h2 className="text-3xl font-bold text-slate-900 serif">Ativar Inteligência</h2>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Para gerar contratos profissionais, você precisa conectar sua conta do Google AI Studio. É rápido e seguro.
+            <h2 className="text-2xl font-bold text-slate-900 serif">Chave de Acesso Ausente</h2>
+            <p className="text-slate-500 text-sm">
+              Não detectamos sua chave API_KEY. Se você está no Vercel, adicione-a nas variáveis de ambiente. Se estiver em teste, conecte abaixo.
             </p>
           </div>
           <div className="space-y-4">
-            <Button onClick={handleOpenKeySelector} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 border-none rounded-2xl font-bold text-lg shadow-indigo-200">
-              Conectar com Google AI Studio
+            <Button onClick={handleOpenKeySelector} className="w-full h-14 bg-indigo-600 border-none rounded-2xl font-bold">
+              Tentar Conectar
             </Button>
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
-              Consulte a <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline text-indigo-500 hover:text-indigo-600">Documentação de Faturamento</a>
+            <p className="text-[10px] text-slate-400">
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="underline">Documentação de Faturamento</a>
             </p>
           </div>
         </div>
@@ -139,7 +144,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col antialiased overflow-x-hidden">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col antialiased">
       <header className="bg-white border-b border-slate-200/60 sticky top-0 z-40 backdrop-blur-md bg-white/80 no-print">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-3 cursor-pointer group" onClick={() => setCurrentContract(null)}>
@@ -148,19 +153,15 @@ const App: React.FC = () => {
             </div>
             <div className="flex flex-col">
               <h1 className="text-base md:text-xl font-bold tracking-tight text-slate-900 serif leading-none">iJota <span className="text-indigo-600">Contratos</span></h1>
-              <p className="hidden md:block text-[10px] text-slate-500 font-semibold tracking-widest uppercase mt-1">Solução Inteligente</p>
+              <p className="hidden md:block text-[10px] text-slate-500 font-semibold tracking-widest uppercase mt-1">Inteligência Gemini 3 Pro</p>
             </div>
           </div>
           
           <div className="flex items-center gap-1 md:gap-3">
-            <button 
-              onClick={() => setShowHistory(!showHistory)} 
-              className="p-2 text-slate-600 hover:text-indigo-600 font-semibold flex items-center gap-1 md:gap-2 text-xs md:text-sm transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <span className="hidden sm:inline">Histórico</span> ({history.length})
+            <button onClick={() => setShowHistory(!showHistory)} className="p-2 text-slate-600 font-semibold text-xs md:text-sm">
+              Histórico ({history.length})
             </button>
-            <Button variant="primary" onClick={() => { setCurrentContract(null); setStatus(GenerationState.IDLE); }} className="rounded-full px-4 md:px-6 py-1.5 md:py-2 text-xs md:text-sm bg-slate-900 border-none">
+            <Button variant="primary" onClick={() => { setCurrentContract(null); setStatus(GenerationState.IDLE); }} className="rounded-full px-4 text-xs md:text-sm bg-slate-900 border-none">
               Novo
             </Button>
           </div>
@@ -170,162 +171,78 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         {!currentContract ? (
           <div className="flex-1 overflow-y-auto px-4 py-8 md:px-6 md:py-12 bg-white no-print">
-            <div className="max-w-4xl mx-auto">
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 border-b border-slate-100 pb-6 gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  </div>
-                  <h2 className="text-xl md:text-2xl font-bold text-slate-800 serif">Informações Básicas</h2>
+            <div className="max-w-4xl mx-auto space-y-8">
+              <div className="space-y-3">
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">O que você deseja contratar?</label>
+                <textarea
+                  value={formData.objective}
+                  onChange={(e) => updateField('objective', e.target.value.toUpperCase())}
+                  placeholder="EX: CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE MARKETING DIGITAL POR 6 MESES"
+                  className="w-full h-24 md:h-32 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Contratante</label>
+                  <input type="text" value={formData.partyA} onChange={(e) => updateField('partyA', e.target.value.toUpperCase())} className="w-full px-4 h-12 bg-slate-50 border border-slate-200 rounded-xl outline-none uppercase text-sm" placeholder="NOME OU EMPRESA" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Contratado</label>
+                  <input type="text" value={formData.partyB} onChange={(e) => updateField('partyB', e.target.value.toUpperCase())} className="w-full px-4 h-12 bg-slate-50 border border-slate-200 rounded-xl outline-none uppercase text-sm" placeholder="NOME OU EMPRESA" />
                 </div>
               </div>
 
-              <div className="space-y-6 md:space-y-8">
-                <div className="space-y-3">
-                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">O que você deseja contratar?</label>
-                  <textarea
-                    value={formData.objective}
-                    onChange={(e) => updateField('objective', e.target.value.toUpperCase())}
-                    placeholder="EX: ALUGUEL DE SALA COMERCIAL POR 12 MESES"
-                    className="w-full h-24 md:h-32 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Estilo Jurídico</label>
+                  <select value={formData.tone} onChange={(e) => updateField('tone', e.target.value as LanguageTone)} className="w-full px-4 h-12 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-semibold">
+                    <option>Formal e Rigoroso</option>
+                    <option>Equilibrado</option>
+                    <option>Linguagem Simples (Plain Language)</option>
+                  </select>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Parte A (Contratante)</label>
-                    <input
-                      type="text"
-                      value={formData.partyA}
-                      onChange={(e) => updateField('partyA', e.target.value.toUpperCase())}
-                      placeholder="NOME COMPLETO"
-                      className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Parte B (Contratado)</label>
-                    <input
-                      type="text"
-                      value={formData.partyB}
-                      onChange={(e) => updateField('partyB', e.target.value.toUpperCase())}
-                      placeholder="NOME COMPLETO"
-                      className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase text-sm"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Cláusulas Específicas</label>
+                  <input type="text" value={formData.specificClauses} onChange={(e) => updateField('specificClauses', e.target.value)} className="w-full px-4 h-12 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" placeholder="Ex: Multa de 20%, Foro em Curitiba..." />
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Estilo da Redação</label>
-                    <select
-                      value={formData.tone}
-                      onChange={(e) => updateField('tone', e.target.value as LanguageTone)}
-                      className="w-full px-4 h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold"
-                    >
-                      <option>Formal e Rigoroso</option>
-                      <option>Equilibrado</option>
-                      <option>Linguagem Simples (Plain Language)</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Observações Extras</label>
-                    <input
-                      type="text"
-                      value={formData.specificClauses}
-                      onChange={(e) => updateField('specificClauses', e.target.value)}
-                      placeholder="Ex: Pagamento mensal de R$ 1000"
-                      className="w-full px-4 h-12 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                    />
-                  </div>
-                </div>
-
-                <Button 
-                  onClick={handleGenerate} 
-                  isLoading={status === GenerationState.LOADING}
-                  disabled={!formData.objective.trim() || status === GenerationState.LOADING}
-                  className="w-full h-14 md:h-16 text-base md:text-lg font-bold rounded-xl md:rounded-2xl shadow-lg bg-slate-900 border-none transition-transform active:scale-95"
-                >
-                  Gerar Minuta do Contrato
-                </Button>
               </div>
+
+              <Button 
+                onClick={handleGenerate} 
+                isLoading={status === GenerationState.LOADING}
+                disabled={!formData.objective.trim() || status === GenerationState.LOADING}
+                className="w-full h-16 text-lg font-bold rounded-2xl shadow-lg bg-slate-900 border-none"
+              >
+                Gerar Contrato com Gemini 3 Pro
+              </Button>
             </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden h-full">
             <div className="flex-1 flex flex-col overflow-hidden h-full p-3 md:p-6">
-               <ContractEditor 
-                contract={currentContract} 
-                onSave={handleSave} 
-               />
+               <ContractEditor contract={currentContract} onSave={handleSave} />
             </div>
             
             <div className={`
-              lg:block lg:relative lg:w-[380px] lg:h-full lg:translate-y-0
-              fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 ease-in-out bg-white lg:bg-transparent
-              ${isMobileChatOpen ? 'translate-y-0 h-[80vh] shadow-2xl rounded-t-3xl border-t' : 'translate-y-full lg:translate-y-0'}
+              lg:block lg:relative lg:w-[400px] lg:h-full
+              fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 bg-white
+              ${isMobileChatOpen ? 'translate-y-0 h-[80vh] border-t' : 'translate-y-full lg:translate-y-0'}
               no-print
             `}>
-              <div className="lg:hidden w-full flex justify-center py-3 border-b">
-                <div className="w-12 h-1.5 bg-slate-200 rounded-full" onClick={() => setIsMobileChatOpen(false)}></div>
-              </div>
-              <ChatBot 
-                contractContent={currentContract.content} 
-                tone={currentContract.formData.tone}
-                onRefine={handleRefineContract}
-              />
+              <ChatBot contractContent={currentContract.content} tone={currentContract.formData.tone} onRefine={handleRefineContract} />
             </div>
 
-            <button 
-              onClick={() => setIsMobileChatOpen(true)}
-              className={`lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 ${isMobileChatOpen ? 'scale-0' : 'scale-100'} no-print transition-transform`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+            <button onClick={() => setIsMobileChatOpen(!isMobileChatOpen)} className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 no-print">
+               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
             </button>
-          </div>
-        )}
-
-        {showHistory && (
-          <div className="fixed inset-0 z-[60] flex justify-end no-print">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowHistory(false)}></div>
-            <div className="relative w-full max-w-[320px] md:max-w-md bg-white shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-300">
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold serif text-slate-900">Histórico</h3>
-                </div>
-                <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {history.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 text-sm">Nenhum contrato criado.</div>
-                ) : (
-                  history.map(c => (
-                    <div 
-                      key={c.id} 
-                      onClick={() => { setCurrentContract(c); setShowHistory(false); setStatus(GenerationState.SUCCESS); }}
-                      className="p-4 bg-white border border-slate-100 rounded-xl cursor-pointer hover:border-indigo-500 transition-all group"
-                    >
-                      <h4 className="font-bold text-slate-800 uppercase text-[10px] truncate mb-1 group-hover:text-indigo-600 transition-colors">{c.title}</h4>
-                      <div className="text-[8px] font-bold text-slate-400 uppercase flex justify-between">
-                        <span>{new Date(c.createdAt).toLocaleDateString()}</span>
-                        <span>{c.formData.tone}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
           </div>
         )}
       </main>
 
-      <footer className="bg-white border-t border-slate-100 py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest no-print">
-        <div className="flex items-center gap-2">
-           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-           <span className="text-emerald-600 font-bold uppercase tracking-widest">iJota Inteligência Jurídica</span>
-        </div>
-        <div className="text-center">© 2025 iJota. Versão 1.5 (PRO)</div>
+      <footer className="bg-white border-t border-slate-100 py-4 px-8 flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-widest no-print">
+        <div>iJota Inteligência Jurídica</div>
+        <div>© 2025 • Versão 1.6 (Gemini 3 Pro)</div>
       </footer>
     </div>
   );
